@@ -1,0 +1,90 @@
+# .gitignore for ChatZoo Project
+
+# General
+.DS_Store
+*.log
+*.env
+*.env.local
+*.env.development
+*.env.production
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js/Next.js
+node_modules/
+.next/
+out/
+dist/
+.npm
+.yarn-integrity
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# AI Models
+models/
+!models/README.md  # Keep this if you have one
+
+# HuggingFace Cache
+.cache/
+.huggingface/
+
+# Jupyter Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Testing
+coverage/
+htmlcov/
+.pytest_cache/
+
+# Database
+*.db
+*.sqlite
+
+# macOS
+._*
+
+# Backend specific
+backend/__pycache__/
+backend/.mypy_cache/
+
+# Frontend specific
+.next/
+.next/cache/
+
+# Local development files
+*.local
+
+# Editor files
+*.swp
+*.swo
+*~
