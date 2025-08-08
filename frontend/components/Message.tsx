@@ -1,4 +1,4 @@
-import { Message } from '@/types'; 
+import { Messages } from '@/types'; 
 
 const modelIcons = {
   cat: '😺',

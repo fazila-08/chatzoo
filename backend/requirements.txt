@@ -1,9 +1,6 @@
-fastapi==0.109.1
-uvicorn==0.27.0
-pydantic==2.6.1
-python-multipart==0.0.6
-transformers==4.38.2
-torch==2.2.1
-sentencepiece==0.2.0
-python-jose==3.3.0
-passlib==1.7.4
+fastapi
+uvicorn[standard]
+transformers
+torch
+sentencepiece
+accelerate

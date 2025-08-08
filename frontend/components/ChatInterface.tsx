@@ -25,6 +25,7 @@ export default function ChatInterface() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
   const messages = histories[currentModel];
 
@@ -32,9 +33,14 @@ export default function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentModel]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+
+    // Cancel any ongoing request
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -47,28 +53,98 @@ export default function ChatInterface() {
     setInput('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const assistantResponses = {
-        cat: ["Meow! 😺", "Purr... meow!", "Mrrrr... 🐱", "Hiss! ...just kidding 🐾"],
-        goldfish: ["What were we talking about again?", "Blub blub... I forgot 🐟", "Did you just say something?", "Oh shiny! ✨"],
-        sloth: ["Hmmm... slooowly thinking... 🦥", "I... need... a... nap...", "That... was... a... message... right?", "Give... me... a... minute... zzz..."]
-      };
+    // Create assistant message placeholder
+    const assistantMessageId = Date.now().toString() + '-assistant';
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      content: '',
+      role: 'assistant'
+    };
 
-      const reply = assistantResponses[currentModel][Math.floor(Math.random() * assistantResponses[currentModel].length)];
+    setHistories(prev => ({
+      ...prev,
+      [currentModel]: [...prev[currentModel], assistantMessage]
+    }));
 
-      const assistantMessage: Message = {
-        id: Date.now().toString(),
-        content: reply,
-        role: 'assistant'
-      };
+    try {
+      // Create new AbortController for this request
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      
+      const response = await fetch('http://localhost:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          model: currentModel
+        }),
+        signal: controller.signal
+      });
 
-      setHistories(prev => ({
-        ...prev,
-        [currentModel]: [...prev[currentModel], assistantMessage]
-      }));
-
+      if (currentModel === 'sloth') {
+        // Handle streaming for sloth
+        const reader = response.body?.getReader();
+        if (!reader) return;
+        
+        const decoder = new TextDecoder();
+        let assistantContent = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value);
+          assistantContent += chunk;
+          
+          // Update assistant message in state
+          setHistories(prev => ({
+            ...prev,
+            [currentModel]: prev[currentModel].map(msg => 
+              msg.id === assistantMessageId 
+                ? { ...msg, content: assistantContent } 
+                : msg
+            )
+          }));
+          
+          // Add random delay to simulate sloth typing
+          if (Math.random() > 0.7) {
+            await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
+          }
+        }
+      } else {
+        // Handle non-streaming responses
+        const data = await response.json();
+        
+        setHistories(prev => ({
+          ...prev,
+          [currentModel]: prev[currentModel].map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: data.response } 
+              : msg
+          )
+        }));
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Request aborted');
+      } else {
+        console.error('Error:', error);
+        // Update with error message
+        setHistories(prev => ({
+          ...prev,
+          [currentModel]: prev[currentModel].map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: "I'm having trouble thinking right now... try again?" } 
+              : msg
+          )
+        }));
+      }
+    } finally {
       setIsLoading(false);
-    }, currentModel === 'sloth' ? 1500 : 800);
+      controllerRef.current = null;
+    }
   };
 
   const getModelColor = (model: Model) => {
@@ -148,20 +224,26 @@ export default function ChatInterface() {
               color: 'var(--light)',
               border: 'none'
             }}
-            placeholder="Type your message..."
+            placeholder={`Message ${models.find(m => m.id === currentModel)?.name}...`}
             disabled={isLoading}
           />
           <button
             type="submit"
-            className="px-4 py-2 rounded-r-full font-semibold"
+            className="px-4 py-2 rounded-r-full font-semibold flex items-center justify-center"
             style={{
               background: isLoading || !input.trim() ? 'gray' : 'var(--primary)',
               color: 'white',
-              cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer'
+              cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
+              minWidth: '80px'
             }}
             disabled={isLoading || !input.trim()}
           >
-            Send
+            {isLoading ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                {currentModel === 'sloth' ? 'Zzz...' : '...'}
+              </div>
+            ) : 'Send'}
           </button>
         </div>
       </form>
