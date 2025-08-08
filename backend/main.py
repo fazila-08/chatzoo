@@ -1,27 +1,46 @@
-# backend/main.py (additions)
-from fastapi import Request
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+# backend/main.py
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+import time
+import random
+import asyncio
+from fastapi.responses import StreamingResponse
+from typing import Optional
+import os
 
-# Add after creating the app
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app = FastAPI()
 
-# Add middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# CORS configuration
 app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["yourdomain.com", "*.railway.app"] 
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
+# Load base model
+MODEL_NAME = "distilgpt2"
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+
+# Initialize pipelines for each mode
+cat_pipeline = pipeline("text-generation", model=model, tokenizer=tokenizer)
+goldfish_pipeline = pipeline("text-generation", model=model, tokenizer=tokenizer)
+sloth_pipeline = pipeline("text-generation", model=model, tokenizer=tokenizer)
+
+# Session memory for goldfish mode (ironically)
+goldfish_memory = {}
+
+class ChatRequest(BaseModel):
+    message: str
+    model: str  # 'cat', 'goldfish', or 'sloth'
+    name: Optional[str] = None 
+
 @app.post("/chat")
-@limiter.limit("10/minute")
-async def chat_endpoint(request: Request, chat_request: ChatRequest):
-   
+async def chat_endpoint(request: ChatRequest):
     user_input = request.message
     model_type = request.model
     
