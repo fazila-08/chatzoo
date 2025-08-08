@@ -1,4 +1,3 @@
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(
@@ -9,40 +8,36 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Temporary mock responses
+  const mockResponses = {
+    cat: ["Meow! 😸", "Purrr... 🐱", "Mrow? 🐈"],
+    goldfish: ["I forget what you said... 🐠", "What were we talking about? 🐟"],
+    sloth: "S... l... o... w... 🦥"
+  };
+
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
-    const response = await fetch(`${backendUrl}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...req.body,
-        session_id: req.cookies.sessionId || 'default-session'
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Backend request failed');
-    }
-
-    // For sloth mode, we need to stream the response
-    if (req.body.model === 'sloth') {
+    const { message, model = 'cat' } = req.body;
+    const responses = mockResponses[model as keyof typeof mockResponses] || mockResponses.cat;
+    
+    // For sloth mode, we'll stream the response
+    if (model === 'sloth') {
       res.setHeader('Content-Type', 'text/plain');
-      const reader = response.body?.getReader();
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          res.write(new TextDecoder().decode(value));
-          await res.flush();
-        }
+      
+      // Simulate streaming
+      const response = mockResponses.sloth;
+      for (let i = 0; i < response.length; i++) {
+        res.write(response.charAt(i));
+        await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 300));
       }
       return res.end();
+    } else {
+      // For other modes
+      const response = Array.isArray(responses) 
+        ? responses[Math.floor(Math.random() * responses.length)]
+        : responses;
+      
+      return res.status(200).json({ response });
     }
-
-    const data = await response.json();
-    return res.status(200).json(data);
   } catch (error) {
     console.error('API error:', error);
     return res.status(500).json({ error: 'Internal server error' });

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-type Message = {
+type Messages = {
   id: string;
   content: string;
   role: 'user' | 'assistant';
@@ -8,11 +8,12 @@ type Message = {
 };
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<Messages[]>([
     { 
       id: '1', 
       content: 'Hello! I\'m ChatZoo. Select a mode below to start chatting!', 
-      role: 'assistant' 
+      role: 'assistant',
+      model: 'cat'
     }
   ]);
   const [input, setInput] = useState('');
@@ -21,7 +22,6 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Model descriptions
   const modelInfo = {
     cat: {
       name: 'Cat Mode',
@@ -55,7 +55,7 @@ export default function ChatInterface() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
+    const userMessage: Messages = {
       id: Date.now().toString(),
       content: input,
       role: 'user'
@@ -66,7 +66,6 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
-      // Call your backend API
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -78,14 +77,14 @@ export default function ChatInterface() {
         })
       });
 
+      if (!response.ok || !response.body) throw new Error("Failed to connect.");
+
       if (activeModel === 'sloth') {
-        // Handle streaming for sloth mode
         await handleStreamResponse(response);
       } else {
-        // Handle regular responses
         const data = await response.json();
-        
-        const assistantMessage: Message = {
+
+        const assistantMessage: Messages = {
           id: Date.now().toString(),
           content: data.response,
           role: 'assistant',
@@ -96,14 +95,14 @@ export default function ChatInterface() {
       }
     } catch (error) {
       console.error("Chat error:", error);
-      
-      const errorMessage: Message = {
+
+      const errorMessage: Messages = {
         id: Date.now().toString(),
         content: 'Sorry, I had trouble responding. Try again?',
         role: 'assistant',
         model: activeModel
       };
-      
+
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -113,37 +112,33 @@ export default function ChatInterface() {
   const handleStreamResponse = async (response: Response) => {
     const reader = response.body?.getReader();
     if (!reader) return;
-    
+
     const decoder = new TextDecoder();
     let assistantMessageId = Date.now().toString();
     let fullResponse = '';
-    
-    // Create initial empty assistant message
+
     setMessages(prev => [...prev, {
       id: assistantMessageId,
       content: '',
       role: 'assistant',
       model: 'sloth'
     }]);
-    
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      
-      const chunk = decoder.decode(value);
+
+      const chunk = decoder.decode(value, { stream: true });
       fullResponse += chunk;
-      
-      // Update the assistant message with the new content
-      setMessages(prev => prev.map(msg => 
-        msg.id === assistantMessageId 
-          ? { ...msg, content: fullResponse } 
+
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMessageId
+          ? { ...msg, content: fullResponse }
           : msg
       ));
-      
-      // Scroll to bottom
+
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      
-      // Simulate sloth typing delay
+
       if (Math.random() > 0.7) {
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
       }
@@ -152,11 +147,10 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-gray-100 via-white to-gray-50">
-      {/* Header */}
       <header className="bg-gradient-to-r from-blue-500 to-purple-600 p-5 shadow-md rounded-b-2xl">
         <h1 className="text-2xl font-bold text-center text-white tracking-wide">ChatZoo 🐾</h1>
         <p className="text-sm text-center text-blue-100 mt-1">Your friendly neighborhood chat companion</p>
-        
+
         {/* Model Selection */}
         <div className="mt-4 flex justify-center gap-2">
           {(['cat', 'goldfish', 'sloth'] as const).map(model => (
@@ -218,9 +212,9 @@ export default function ChatInterface() {
                 </span>
               </div>
               <div className="flex space-x-1">
-                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
-                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse delay-150"></span>
-                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse delay-300"></span>
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '300ms' }}></span>
               </div>
             </div>
           </div>
@@ -236,13 +230,10 @@ export default function ChatInterface() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className={`flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400 ${
-                    input.trim() ? 'text-gray-800' : 'text-gray-800'
-                    }`}
+            className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 placeholder-gray-400"
             placeholder={`Message ChatZoo in ${modelInfo[activeModel].name}...`}
             disabled={isLoading}
           />
-        
           <button
             type="submit"
             className={`w-10 h-10 rounded-full flex items-center justify-center text-white transition-all

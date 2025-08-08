@@ -1,5 +1,4 @@
-// components/Message.tsx
-import { Messages } from '@/types'; 
+import { Message } from '@/types'; 
 
 const modelIcons = {
   cat: '😺',
