@@ -1,0 +1,5 @@
+{
+  "name": "ChatZoo",
+  "description": "A ChatGPT-like web application with three distinct AI animal personalities: a cat, a goldfish, and a sloth. Users can chat with each model and experience their unique response styles.",
+  "requestFramePermissions": []
+}
